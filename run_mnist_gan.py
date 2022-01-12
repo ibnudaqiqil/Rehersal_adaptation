@@ -59,9 +59,9 @@ for task_id, train_taskset in enumerate(scenario):
     train_loader = DataLoader(train_taskset, batch_size=BATCH_SIZE, shuffle=False)
     val_loader = DataLoader(val_taskset, batch_size=BATCH_SIZE, shuffle=False)
     #prepare psudodataset
-    if task_id > 0:
-        mem_x, mem_y, mem_t = memory.get()
-        train_taskset.add_samples(mem_x, mem_y, mem_t)
+    #if task_id > 0:
+    #    mem_x, mem_y, mem_t = memory.get()
+    #    train_taskset.add_samples(mem_x, mem_y, mem_t)
     
     # Train the model
     classifier = LitMNIST()
@@ -97,10 +97,11 @@ for task_id, train_taskset in enumerate(scenario):
     generator = GAN(1, 28,28,batch_size=BATCH_SIZE,)
     trainer_generator = Trainer(
         gpus=AVAIL_GPUS, 
-        max_epochs=5, 
+        max_epochs=500, 
         progress_bar_refresh_rate=20,
         logger=logger,)
     trainer_generator.fit(generator, train_loader)
+    trainer_generator.save_checkpoint(f"./store/gan{task_id}.ckpt")
 
 
 
