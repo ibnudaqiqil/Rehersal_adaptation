@@ -70,7 +70,7 @@ for task_id, train_taskset in enumerate(scenario):
         max_epochs=10,
         logger=logger,
         #verbose=True,
-        weights_summary=None,
+        #weights_summary=None,
         #progress_bar_refresh_rate=0,
         enable_progress_bar=True
     )
