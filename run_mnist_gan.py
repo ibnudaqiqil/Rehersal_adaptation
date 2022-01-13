@@ -71,7 +71,9 @@ for task_id, train_taskset in enumerate(scenario):
     train_loader = DataLoader(train_taskset, batch_size=BATCH_SIZE, shuffle=False)
     val_loader = DataLoader(val_taskset, batch_size=BATCH_SIZE, shuffle=False)
     #prepare psudodataset
-    #if task_id > 0:
+    if task_id > 0:
+        generated_imgs = psudodataset_generator.generate_image(100)
+        print(generated_imgs.shape)
     #    mem_x, mem_y, mem_t = memory.get()
     #    train_taskset.add_samples(mem_x, mem_y, mem_t)
     
@@ -106,10 +108,15 @@ for task_id, train_taskset in enumerate(scenario):
         hasil = trainer_classifier.test(classifier, test_loader,verbose=False)
         print(hasil[0]['Test_acc'])
 
-    model = WGAN(1, 28, 28)
-    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=200, logger=logger,
+    psudodataset_generator = WGAN(1, 28, 28)
+    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=2, logger=logger,
                       progress_bar_refresh_rate=20)
-    trainer.fit(model, train_loader)
+    trainer.fit(psudodataset_generator, train_loader)
+
+
+    #generated_imgs = np.transpose(generated_imgs, (0, 2, 3, 1))
+    #generated_imgs = generated_imgs.reshape(100, 28, 28)
+    
 
         #print(hasil)
     

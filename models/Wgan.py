@@ -98,6 +98,7 @@ class WGAN(LightningModule):
     def forward(self, z):
         return self.generator(z)
 
+    
     def training_step(self, batch, batch_idx, optimizer_idx):
         imgs, _, _ = batch
 
@@ -167,16 +168,6 @@ class WGAN(LightningModule):
             {'optimizer': opt_g, 'frequency': 1},
             {'optimizer': opt_d, 'frequency': n_critic}
         )
-
-    def train_dataloader(self):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ])
-        dataset = MNIST(os.getcwd(), train=True,
-                        download=True, transform=transform)
-        return DataLoader(dataset, batch_size=self.batch_size)
-
     def on_epoch_end(self):
         z = self.validation_z.to(self.device)
 
@@ -185,41 +176,8 @@ class WGAN(LightningModule):
         grid = torchvision.utils.make_grid(sample_imgs)
         self.logger.experiment.add_image(
             'generated_images', grid, self.current_epoch)
+    def generate_image(self, sample_imgs):
+        Z = torch.randn(sample_imgs, self.latent_dim).to(self.device)
+        generated_imgs = self.generator(Z)
+        return generated_imgs
 
-
-def main(args: Namespace) -> None:
-    # ------------------------
-    # 1 INIT LIGHTNING MODEL
-    # ------------------------
-    model = WGAN(**vars(args))
-
-    # ------------------------
-    # 2 INIT TRAINER
-    # ------------------------
-    # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
-    # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
-    trainer = Trainer(gpus=args.gpus)
-
-    # ------------------------
-    # 3 START TRAINING
-    # ------------------------
-    trainer.fit(model)
-
-
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument("--gpus", type=int, default=0, help="number of GPUs")
-    parser.add_argument("--batch_size", type=int,
-                        default=64, help="size of the batches")
-    parser.add_argument("--lr", type=float, default=0.0002,
-                        help="adam: learning rate")
-    parser.add_argument("--b1", type=float, default=0.5,
-                        help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--b2", type=float, default=0.999,
-                        help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--latent_dim", type=int, default=100,
-                        help="dimensionality of the latent space")
-
-    hparams = parser.parse_args()
-
-    main(hparams)
