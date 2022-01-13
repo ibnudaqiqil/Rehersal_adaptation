@@ -20,7 +20,7 @@ gan = VanillaGAN(
 gan.summary()  # optional, shows architecture
 
 # Training
-gan.fit(X_train, enable_tensorboard=False)
+gan.fit(X_train, enable_tensorboard=False, epochs=100)
 
 # Vizualise results
 images, losses = gan.get_training_results()
