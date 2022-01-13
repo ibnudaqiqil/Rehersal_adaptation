@@ -164,4 +164,4 @@ class GAN(LightningModule):
         sample_imgs = self(z)
         grid = torchvision.utils.make_grid(sample_imgs)
         self.logger.experiment.add_image(
-            "generated_images"+str(self.current_epoch), grid, self.current_epoch)
+            f"generated_images-{self.current_epoch}", grid, self.current_epoch)
