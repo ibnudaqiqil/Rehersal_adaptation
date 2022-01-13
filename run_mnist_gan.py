@@ -107,7 +107,7 @@ for task_id, train_taskset in enumerate(scenario):
         print(hasil[0]['Test_acc'])
 
     model = GAN((1, 28, 28))
-    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=50, logger=logger,
+    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=200, logger=logger,
                       progress_bar_refresh_rate=20)
     trainer.fit(model, train_loader)
 
