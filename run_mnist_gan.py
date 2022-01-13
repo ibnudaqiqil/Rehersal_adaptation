@@ -1,3 +1,4 @@
+
 from pytorch_lightning.loggers import TensorBoardLogger
 from colorama import Fore, Back, Style
 import logging
@@ -23,7 +24,16 @@ from continuum.tasks import split_train_val, concat
 
 import numpy as np
 from models.MNIST import LitMNIST
+from models.Gan import Generator,GAN
+
+
+trfm = transforms.Compose([transforms.ToTensor(),
+                           transforms.ToPILImage(),
+                           transforms.Pad(2),
+                           transforms.ToTensor(), ])
 dataset = MNIST("./store/dataset", download=True, train=True)
+                                             
+
 test_dataset = MNIST("./store/dataset", download=True, train=False)
 pl.utilities.distributed.log.setLevel(logging.ERROR)
 
@@ -31,7 +41,8 @@ scenario = ClassIncremental(
     dataset,
     increment=2,
     initial_increment=2,
-    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+ 
 )
 
 
@@ -49,7 +60,8 @@ memory = rehearsal.RehearsalMemory(
     herding_method="random"
 )
 logger = TensorBoardLogger("runs", name="MNIST_GAN")
-from models.Gan import GAN
+z_dim = [1, 4, 4]
+x_dim = [1, 28, 28]
 for task_id, train_taskset in enumerate(scenario):
     
     print(Fore.RED + f'TRAINING TASK: {task_id}  Class{train_taskset.get_classes()}')
@@ -67,7 +79,7 @@ for task_id, train_taskset in enumerate(scenario):
     classifier = LitMNIST()
     trainer_classifier = Trainer(
         gpus=AVAIL_GPUS,
-        max_epochs=10,
+        max_epochs=1,
         logger=logger,
         #verbose=True,
         #weights_summary=None,
@@ -94,18 +106,10 @@ for task_id, train_taskset in enumerate(scenario):
         hasil = trainer_classifier.test(classifier, test_loader,verbose=False)
         print(hasil[0]['Test_acc'])
 
-    generator = GAN(1, 28,28,batch_size=BATCH_SIZE,)
-    trainer_generator = Trainer(
-        gpus=AVAIL_GPUS, 
-        max_epochs=500, 
-        progress_bar_refresh_rate=20,
-        logger=logger,)
-    trainer_generator.fit(generator, train_loader)
-    trainer_generator.save_checkpoint(f"./store/gan{task_id}.ckpt")
+    model = GAN((1, 28, 28))
+    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=50, logger=logger,
+                      progress_bar_refresh_rate=20)
+    trainer.fit(model, train_loader)
 
-
-
-
-        
         #print(hasil)
     

@@ -8,7 +8,9 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from torch.utils.data import DataLoader, random_split
+
+""" Generator
+"""
 
 
 class Generator(nn.Module):
@@ -68,7 +70,7 @@ class GAN(LightningModule):
         lr: float = 0.0002,
         b1: float = 0.5,
         b2: float = 0.999,
-        batch_size: int = 64,
+        batch_size: int = BATCH_SIZE,
         **kwargs
     ):
         super().__init__()
@@ -91,7 +93,7 @@ class GAN(LightningModule):
         return F.binary_cross_entropy(y_hat, y)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        imgs, _,_ = batch
+        imgs, _ = batch
 
         # sample noise
         z = torch.randn(imgs.shape[0], self.hparams.latent_dim)
@@ -162,6 +164,4 @@ class GAN(LightningModule):
         sample_imgs = self(z)
         grid = torchvision.utils.make_grid(sample_imgs)
         self.logger.experiment.add_image(
-            "generated_images", grid, self.current_epoch)
-
-      
+            "generated_images"+self.current_epoch, grid, self.current_epoch)
