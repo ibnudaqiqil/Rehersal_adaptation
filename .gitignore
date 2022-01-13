@@ -4,6 +4,7 @@ store/
 *.py[cod]
 *$py.class
 runs/
+lightning_logs/
 # C extensions
 *.so
 

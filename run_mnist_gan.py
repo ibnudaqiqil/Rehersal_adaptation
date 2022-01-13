@@ -1,4 +1,5 @@
-
+from rich import print
+from rich.console import Console
 from models.Wgan import WGAN
 from pytorch_lightning.loggers import TensorBoardLogger
 from colorama import Fore, Back, Style
@@ -25,60 +26,71 @@ from continuum.tasks import split_train_val, concat
 
 import numpy as np
 from models.MNIST import LitMNIST
+from models.Cgan import CGAN
 
-
-trfm = transforms.Compose([transforms.ToTensor(),
-                           transforms.ToPILImage(),
-                           transforms.Pad(2),
-                           transforms.ToTensor(), ])
+console = Console()
+console.log("Loading MNIST dataset...")
+trfm = [transforms.ToTensor(),
+         #transforms.Normalize(mean=[0.5], std=[0.5]),
+         transforms.Lambda(lambda x: x.view(-1, 784)),
+         transforms.Lambda(lambda x: torch.squeeze(x))
+         ]
+                            
 dataset = MNIST("./store/dataset", download=True, train=True)
                                              
 
 test_dataset = MNIST("./store/dataset", download=True, train=False)
 pl.utilities.distributed.log.setLevel(logging.ERROR)
 
+console.log("Splitting dataset and create scenario...")
 scenario = ClassIncremental(
     dataset,
     increment=2,
     initial_increment=2,
     class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    transformations=trfm,
  
 )
-
-
 scenario_test = ClassIncremental(
     test_dataset,
     increment=2,
     initial_increment=2,
-    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    transformations=trfm
 )
 AVAIL_GPUS = min(1, torch.cuda.device_count())
 BATCH_SIZE = 256 if AVAIL_GPUS else 64
 
-memory = rehearsal.RehearsalMemory(
-    memory_size=2000,
-    herding_method="random"
-)
+
 logger = TensorBoardLogger("runs", name="MNIST_GAN")
-z_dim = [1, 4, 4]
-x_dim = [1, 28, 28]
+
+console.log("Creating model...")
 for task_id, train_taskset in enumerate(scenario):
     
-    print(Fore.RED + f'TRAINING TASK: {task_id}  Class{train_taskset.get_classes()}')
-    print(Style.RESET_ALL)
+    console.log(f"[red]Task {task_id}")
+    jumlah_kelas = (task_id + 1)*2
     #prepare datatrain set
     train_taskset, val_taskset = split_train_val(train_taskset, val_split=0.1)
     train_loader = DataLoader(train_taskset, batch_size=BATCH_SIZE, shuffle=False)
     val_loader = DataLoader(val_taskset, batch_size=BATCH_SIZE, shuffle=False)
     #prepare psudodataset
     if task_id > 0:
-        generated_imgs = psudodataset_generator.generate_image(100)
-        print(generated_imgs.shape)
+        console.log("Augmenting psudo data")
+        for ps_id in range(0, task_id):
+            jumlah_sample= 5000
+            label_sample = ps_id
+            Z = torch.randn(jumlah_sample, 100)
+            mem_y = torch.full([jumlah_sample], label_sample)
+            mem_x = pseudo_generator.generator(Z, mem_y)
+            mem_x = mem_x.detach()
+            mem_x = mem_x.view(-1,  28, 28)
+        #print(mem_x.shape)
     #    mem_x, mem_y, mem_t = memory.get()
-    #    train_taskset.add_samples(mem_x, mem_y, mem_t)
+            train_taskset.add_samples(
+                mem_x.numpy(), mem_y.detach().numpy(), None)
     
     # Train the model
-    classifier = LitMNIST()
+    classifier = LitMNIST(num_classes=jumlah_kelas)
     trainer_classifier = Trainer(
         gpus=AVAIL_GPUS,
         max_epochs=1,
@@ -94,29 +106,30 @@ for task_id, train_taskset in enumerate(scenario):
     if task_id > 0:
         t=[]
         for test_id in range(0, task_id+1):
-            print(Fore.GREEN + "Test test_id", test_id," Class=", scenario_test[test_id].get_classes())
-            print(Style.RESET_ALL)
+            #print(Fore.GREEN + "Test test_id", test_id," Class=", scenario_test[test_id].get_classes())
+            #print(Style.RESET_ALL)
             test_loader = DataLoader(
                 scenario_test[test_id], batch_size=32, shuffle=False)
             hasil = trainer_classifier.test(classifier, test_loader,verbose=False)
             t.append((test_id, hasil[0]['Test_acc']))
         #test_taskset = concat(t)
-        print(t)
+        console.log(f"accuracy : {t}")
     else:
         test_taskset = scenario_test[task_id]
         test_loader = DataLoader(test_taskset, batch_size=32, shuffle=False)
         hasil = trainer_classifier.test(classifier, test_loader,verbose=False)
-        print(hasil[0]['Test_acc'])
-
-    psudodataset_generator = WGAN(1, 28, 28)
-    trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=2, logger=logger,
-                      progress_bar_refresh_rate=20)
-    trainer.fit(psudodataset_generator, train_loader)
-
+        #print(hasil[0]['Test_acc'])
+        console.log(f"accuracy : {hasil[0]['Test_acc']}")
 
     #generated_imgs = np.transpose(generated_imgs, (0, 2, 3, 1))
     #generated_imgs = generated_imgs.reshape(100, 28, 28)
-    
+
+    # Data preparation (Load your own data or example MNIST)
+    console.log("Training Generator")
+    pseudo_generator = CGAN(num_classes=jumlah_kelas)
+
+    trainer = pl.Trainer(max_epochs=1, gpus=AVAIL_GPUS, progress_bar_refresh_rate=50)
+    trainer.fit(pseudo_generator, train_loader)
 
         #print(hasil)
     

@@ -11,7 +11,7 @@ from torchvision.datasets import MNIST
 
 
 class LitMNIST(LightningModule):
-    def __init__(self, data_dir="./store/dataset", hidden_size=64, learning_rate=2e-4):
+    def __init__(self, data_dir="./store/dataset", num_classes=10, hidden_size=64, learning_rate=2e-4):
 
         super().__init__()
 
@@ -21,7 +21,7 @@ class LitMNIST(LightningModule):
         self.learning_rate = learning_rate
 
         # Hardcode some dataset specific attributes
-        self.num_classes = 10
+        self.num_classes = num_classes
         self.dims = (1, 28, 28)
         channels, width, height = self.dims
       
