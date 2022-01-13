@@ -99,7 +99,7 @@ class WGAN(LightningModule):
         return self.generator(z)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        imgs, _ = batch
+        imgs, _, _ = batch
 
         # sample noise
         z = torch.randn(imgs.shape[0], self.latent_dim)
@@ -160,9 +160,9 @@ class WGAN(LightningModule):
         b2 = self.b2
 
         opt_g = torch.optim.Adam(
-            self.generator.parameters(), lr=lr, betas=(b1, b2))
+            self.generator.parameters(), lr=lr)
         opt_d = torch.optim.Adam(
-            self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+            self.discriminator.parameters(), lr=lr)
         return (
             {'optimizer': opt_g, 'frequency': 1},
             {'optimizer': opt_d, 'frequency': n_critic}
