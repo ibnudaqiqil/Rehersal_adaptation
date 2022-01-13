@@ -93,7 +93,7 @@ class GAN(LightningModule):
         return F.binary_cross_entropy(y_hat, y)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        imgs, _ = batch
+        imgs, _,_ = batch
 
         # sample noise
         z = torch.randn(imgs.shape[0], self.hparams.latent_dim)
