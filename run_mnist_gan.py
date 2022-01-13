@@ -1,4 +1,5 @@
 
+from models.Wgan import WGAN
 from pytorch_lightning.loggers import TensorBoardLogger
 from colorama import Fore, Back, Style
 import logging
@@ -24,7 +25,6 @@ from continuum.tasks import split_train_val, concat
 
 import numpy as np
 from models.MNIST import LitMNIST
-from models.Gan import Generator,GAN
 
 
 trfm = transforms.Compose([transforms.ToTensor(),
@@ -106,7 +106,7 @@ for task_id, train_taskset in enumerate(scenario):
         hasil = trainer_classifier.test(classifier, test_loader,verbose=False)
         print(hasil[0]['Test_acc'])
 
-    model = GAN(1, 28, 28)
+    model = WGAN(1, 28, 28)
     trainer = Trainer(gpus=AVAIL_GPUS, max_epochs=200, logger=logger,
                       progress_bar_refresh_rate=20)
     trainer.fit(model, train_loader)
