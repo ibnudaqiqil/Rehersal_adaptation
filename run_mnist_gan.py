@@ -93,7 +93,7 @@ for task_id, train_taskset in enumerate(scenario):
     classifier = LitMNIST(num_classes=jumlah_kelas)
     trainer_classifier = Trainer(
         gpus=AVAIL_GPUS,
-        max_epochs=1,
+        max_epochs=10,
         logger=logger,
         #verbose=True,
         #weights_summary=None,
@@ -128,7 +128,7 @@ for task_id, train_taskset in enumerate(scenario):
     console.log("Training Generator")
     pseudo_generator = CGAN(num_classes=jumlah_kelas)
 
-    trainer = pl.Trainer(max_epochs=1, gpus=AVAIL_GPUS, progress_bar_refresh_rate=50)
+    trainer = pl.Trainer(max_epochs=100, gpus=AVAIL_GPUS, progress_bar_refresh_rate=50)
     trainer.fit(pseudo_generator, train_loader)
 
         #print(hasil)
