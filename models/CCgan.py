@@ -59,7 +59,7 @@ class Discriminator(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, label_size, embedding_dim, latent_size=100):
+    def __init__(self, label_size=10, embedding_dim=10, latent_size=100):
         super(Generator, self).__init__()
 
         self.embedding = nn.Embedding(label_size, embedding_dim)
@@ -101,7 +101,7 @@ class Generator(nn.Module):
         # = [B, latent_size + embedding_dim, 1, 1]
         x = x.view(x.size(0), -1, 1, 1)
         return self.conv(x)
-        
+
 '''
 class Generator(nn.Module):
  
@@ -184,13 +184,13 @@ class Discriminator(nn.Module):
     return x
 '''
 
-class CGAN(pl.LightningModule):
+class CCGAN(pl.LightningModule):
 
   def __init__(self, num_classes=10):
     super().__init__()
     self.num_classes = num_classes
-    self.generator = Generator(num_classes=self.num_classes)
-    self.discriminator = Discriminator(num_classes=self.num_classes)
+    self.generator = Generator(label_size=self.num_classes)
+    self.discriminator = Discriminator(label_size=self.num_classes)
 
   def forward(self, z, y):
     """
