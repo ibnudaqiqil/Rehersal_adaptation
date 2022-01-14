@@ -173,7 +173,7 @@ class CGAN(pl.LightningModule):
         f'generated_images-{self.current_epoch}', grid, self.current_epoch)
 
 
-def configure_optimizers(self):
+  def configure_optimizers(self):
     g_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.0002)
     d_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002)
     return [g_optimizer, d_optimizer], []
