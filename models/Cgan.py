@@ -167,6 +167,7 @@ class CGAN(pl.LightningModule):
 
     generated_imgs = self(z, y)
     d_output = torch.squeeze(self.discriminator(generated_imgs, y))
+    print(d_output.shape)
     grid = torchvision.utils.make_grid(d_output)
     self.logger.experiment.add_image(
         f'generated_images-{self.current_epoch}', grid, self.current_epoch)
