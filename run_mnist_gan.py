@@ -1,6 +1,8 @@
 from models.MNIST import LitMNIST
 from models.Cgan import CGAN
 from models.CCgan import CCGAN
+from models.Wgan_GP import WGANGP
+
 from rich import print
 from rich.console import Console
 from models.Wgan import WGAN
@@ -127,7 +129,7 @@ for task_id, train_taskset in enumerate(scenario):
 
     # Data preparation (Load your own data or example MNIST)
     console.log("Training Generator")
-    pseudo_generator = CCGAN(num_classes=jumlah_kelas)
+    pseudo_generator = WGANGP()
 
     trainer = pl.Trainer(max_epochs=100, gpus=AVAIL_GPUS,
                          progress_bar_refresh_rate=50, logger=logger,)
