@@ -47,7 +47,7 @@ console.log("Splitting dataset and create scenario...")
 scenario = ClassIncremental(
     dataset,
     increment=2,
-    initial_increment=2,
+    initial_increment=6,
     class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     transformations=trfm,
  
@@ -55,7 +55,7 @@ scenario = ClassIncremental(
 scenario_test = ClassIncremental(
     test_dataset,
     increment=2,
-    initial_increment=2,
+    initial_increment=6,
     class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     transformations=trfm
 )
