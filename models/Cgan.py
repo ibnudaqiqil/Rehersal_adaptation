@@ -167,11 +167,11 @@ class CGAN(pl.LightningModule):
 
     generated_imgs = self(z, y)
     generated_imgs = generated_imgs.view(10, 1, 28, 28)
-    self.logger.experiment.add_image('generated_images', generated_imgs, 0)
+    #self.logger.experiment.add_image('generated_images', generated_imgs, 0)
    # print(d_output.shape)
-    #grid = torchvision.utils.make_grid(generated_imgs)
-    #self.logger.experiment.add_image(
-    #    f'generated_images-{self.current_epoch}', grid, self.current_epoch)
+    grid = torchvision.utils.make_grid(generated_imgs)
+    self.logger.experiment.add_image(
+        f'generated_images-{self.current_epoch}', grid, self.current_epoch)
 
 
   def configure_optimizers(self):
