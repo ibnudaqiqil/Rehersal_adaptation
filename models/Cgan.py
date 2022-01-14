@@ -159,7 +159,20 @@ class CGAN(pl.LightningModule):
 
     return loss
 
-  def configure_optimizers(self):
+  def on_epoch_end(self):
+    
+    # log sampled images
+    z = torch.randn(10, 100, device=self.device)
+    y = torch.randint(0, self.num_classes, size=( 10,), device=self.device)
+
+    generated_imgs = self(z, y)
+    d_output = torch.squeeze(self.discriminator(generated_imgs, y))
+    grid = torchvision.utils.make_grid(d_output)
+    self.logger.experiment.add_image(
+        f'generated_images-{self.current_epoch}', grid, self.current_epoch)
+
+
+def configure_optimizers(self):
     g_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.0002)
     d_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002)
     return [g_optimizer, d_optimizer], []

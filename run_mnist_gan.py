@@ -128,7 +128,8 @@ for task_id, train_taskset in enumerate(scenario):
     console.log("Training Generator")
     pseudo_generator = CGAN(num_classes=jumlah_kelas)
 
-    trainer = pl.Trainer(max_epochs=100, gpus=AVAIL_GPUS, progress_bar_refresh_rate=50)
+    trainer = pl.Trainer(max_epochs=100, gpus=AVAIL_GPUS,
+                         progress_bar_refresh_rate=50, logger=logger,)
     trainer.fit(pseudo_generator, train_loader)
 
         #print(hasil)
