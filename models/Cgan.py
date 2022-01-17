@@ -14,16 +14,21 @@ class Generator(nn.Module):
   from the real MNIST digits.
   '''
 
-  def __init__(self, num_classes):
+  def __init__(self, n_classes=10, image_w=28, image_h=28,latent_dim=100):
     super().__init__()
-    self.embedding = nn.Embedding(num_classes, num_classes)
-    self.layer1 = nn.Sequential(nn.Linear(in_features=100+num_classes, out_features=256),
+    self.n_classes = n_classes
+    self.image_w = image_w
+    self.image_h = image_h
+
+    self.embedding = nn.Embedding(n_classes, n_classes)
+    #self.embedding = nn.Embedding(10, 10)
+    self.layer1 = nn.Sequential(nn.Linear(in_features=latent_dim+n_classes, out_features=256),
                                 nn.LeakyReLU())
     self.layer2 = nn.Sequential(nn.Linear(in_features=256, out_features=512),
                                 nn.LeakyReLU())
     self.layer3 = nn.Sequential(nn.Linear(in_features=512, out_features=1024),
                                 nn.LeakyReLU())
-    self.output = nn.Sequential(nn.Linear(in_features=1024, out_features=28*28),
+    self.output = nn.Sequential(nn.Linear(in_features=1024, out_features=image_w*image_h),
                                 nn.Tanh())
 
   def forward(self, z, y):
@@ -46,10 +51,11 @@ class Discriminator(nn.Module):
   with the predicted class probabilities (generated or real data)
   '''
 
-  def __init__(self, num_classes=10):
+  def __init__(self, n_classes=10,  image_w=28, image_h=28, latent_dim=100):
     super().__init__()
-    self.embedding = nn.Embedding(num_classes, num_classes)
-    self.layer1 = nn.Sequential(nn.Linear(in_features=28*28+num_classes, out_features=1024),
+    self.n_classes = n_classes
+    self.embedding = nn.Embedding(self.n_classes, self.n_classes)
+    self.layer1 = nn.Sequential(nn.Linear(in_features=image_w*image_h+n_classes, out_features=1024),
                                 nn.LeakyReLU())
     self.layer2 = nn.Sequential(nn.Linear(in_features=1024, out_features=512),
                                 nn.LeakyReLU())
@@ -61,9 +67,10 @@ class Discriminator(nn.Module):
   def forward(self, x, y):
     # pass the labels into a embedding layer
     labels_embedding = self.embedding(y)
-    
     # concat the embedded labels and the input tensor
     # x is a tensor of size (batch_size, 794)
+    x = x.view(-1, 28*28)
+  
     x = torch.cat([x, labels_embedding], dim=-1)
     x = self.layer1(x)
     x = self.layer2(x)
@@ -74,11 +81,15 @@ class Discriminator(nn.Module):
 
 class CGAN(pl.LightningModule):
 
-  def __init__(self, num_classes=10):
+  def __init__(self, n_classes=10, image_w=28, image_h=28, latent_dim=100):
     super().__init__()
-    self.num_classes = num_classes
-    self.generator = Generator(num_classes=self.num_classes)
-    self.discriminator = Discriminator(num_classes=self.num_classes)
+    self.n_classes = n_classes
+    self.image_w = image_w
+    self.image_h = image_h
+    self.latent_dim = latent_dim
+    self.generator = Generator(
+        n_classes=self.n_classes, image_w=self.image_w, image_h=self.image_h,latent_dim=self.latent_dim)
+    self.discriminator = Discriminator(n_classes=self.n_classes, latent_dim=self.latent_dim)
 
   def forward(self, z, y):
     """
@@ -99,8 +110,9 @@ class CGAN(pl.LightningModule):
     """
 
     # Sample random noise and labels
-    z = torch.randn(x.shape[0], 100, device=self.device)
-    y = torch.randint(0, self.num_classes, size=( x.shape[0],), device=self.device)
+    z = torch.randn(x.shape[0], self.latent_dim, device=self.device)
+    y = torch.randint(0, self.n_classes, size=(
+        x.shape[0],), device=self.device)
 
     # Generate images
     generated_imgs = self(z, y)
@@ -112,7 +124,8 @@ class CGAN(pl.LightningModule):
     # loss, which is equivalent to minimizing the loss with the true
     # labels flipped (i.e. y_true=1 for fake images). We do this
     # as PyTorch can only minimize a function instead of maximizing
-    g_loss = nn.BCELoss()(d_output,torch.ones(x.shape[0], device=self.device))
+    g_loss = nn.BCELoss()(d_output,
+                          torch.ones(x.shape[0], device=self.device))
 
     return g_loss
 
@@ -128,23 +141,25 @@ class CGAN(pl.LightningModule):
 
     # Real images
     d_output = torch.squeeze(self.discriminator(x, y))
-    loss_real = nn.BCELoss()(d_output, torch.ones(x.shape[0], device=self.device))
+    loss_real = nn.BCELoss()(d_output,
+                             torch.ones(x.shape[0], device=self.device))
 
     # Fake images
-    z = torch.randn(x.shape[0], 100, device=self.device)
-    y = torch.randint(0, self.num_classes, size=( x.shape[0],), device=self.device)
+    z = torch.randn(x.shape[0], self.latent_dim, device=self.device)
+    y = torch.randint(0, self.n_classes, size=(
+        x.shape[0],), device=self.device)
 
     generated_imgs = self(z, y)
     d_output = torch.squeeze(self.discriminator(generated_imgs, y))
-    loss_fake = nn.BCELoss()(d_output, torch.zeros(x.shape[0], device=self.device))
+    loss_fake = nn.BCELoss()(d_output,
+                             torch.zeros(x.shape[0], device=self.device))
 
     return loss_real + loss_fake
 
   def training_step(self, batch, batch_idx, optimizer_idx):
-    X, y,_ = batch
+    X, y, _ = batch
 
     # train generator
-    #print(optimizer_idx)
     if optimizer_idx == 0:
       loss = self.generator_step(X)
 
@@ -154,25 +169,7 @@ class CGAN(pl.LightningModule):
 
     return loss
 
-  def on_epoch_end(self):
-    
-    # log sampled images
-    z = torch.randn(10, 100, device=self.device)
-    y = torch.randint(0, self.num_classes, size=( 10,), device=self.device)
-
-    generated_imgs = self(z, y)
-    generated_imgs = generated_imgs.view(10, 1, 28, 28)
-    #self.logger.experiment.add_image('generated_images', generated_imgs, 0)
-   # print(d_output.shape)
-    grid = torchvision.utils.make_grid(generated_imgs)
-    self.logger.experiment.add_image(
-        f'generated_images-{self.current_epoch}', grid, self.current_epoch)
-
-
   def configure_optimizers(self):
     g_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.0002)
     d_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002)
     return [g_optimizer, d_optimizer], []
-
-
-

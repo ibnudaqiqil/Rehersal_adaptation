@@ -54,8 +54,9 @@ args = parser.parse_args()
 console.log("Creating model...")
 for task_id, train_taskset in enumerate(scenario):
     
-    console.log(f"[red]Task {task_id}")
+   
     jumlah_kelas = (task_id + 1)*2
+    console.log(f"[red]Task {task_id} jumlah kelas = {jumlah_kelas}")
     #prepare datatrain set
     train_taskset, val_taskset = split_train_val(train_taskset, val_split=0.1)
     train_loader = DataLoader(train_taskset, batch_size=BATCH_SIZE, shuffle=False)
