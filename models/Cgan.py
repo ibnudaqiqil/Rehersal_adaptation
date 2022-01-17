@@ -89,6 +89,7 @@ class CGAN(pl.LightningModule):
     self.latent_dimx = latent_dim
     self.generator = Generator(n_classes=self.n_classes, image_w=self.image_w, image_h=self.image_h,latent_dim=self.latent_dimx)
     self.discriminator = Discriminator(n_classes=self.n_classes, latent_dim=self.latent_dimx)
+    self.img_dim = (1, image_w, image_h)
 
   def forward(self, z, y):
     """
@@ -167,3 +168,25 @@ class CGAN(pl.LightningModule):
     g_optimizer = torch.optim.Adam(self.generator.parameters(), lr=0.0002)
     d_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002)
     return [g_optimizer, d_optimizer], []
+
+  def on_epoch_end(self):
+         # generate images
+        with torch.no_grad():
+            z = torch.randn(10, self.latent_dimx, device=self.device)
+            y = torch.randint(0, self.n_classes, size=(10,), device=self.device)
+            images = self.generator(z,y)
+           
+
+
+        grid = torchvision.utils.make_grid(
+            tensor=images,
+            nrow=8,
+            #padding=self.padding,
+            #normalize=self.normalize,
+            #range=self.norm_range,
+            #scale_each=self.scale_each,
+            #pad_value=self.pad_value,
+        )
+        str_title = f"{self.__class__.__name__}_images"
+        self.logger.experiment.add_image(
+            str_title, grid, self.current_epoch)

@@ -77,7 +77,7 @@ for task_id, train_taskset in enumerate(scenario):
                 mem_x.numpy(), mem_y.detach().numpy(), None)
     
     # Train the model
-    classifier = LitMNIST(num_classes=jumlah_kelas)
+    classifier = CNN_MNIST(num_classes=jumlah_kelas)
     trainer_classifier = Trainer(
         gpus=AVAIL_GPUS,
         max_epochs=args.epochs,
@@ -117,7 +117,7 @@ for task_id, train_taskset in enumerate(scenario):
     callbacks = [TensorboardGenerativeModelImageSampler()]
     trainer = pl.Trainer(max_epochs=args.gan_epochs, gpus=AVAIL_GPUS,
                          progress_bar_refresh_rate=50, logger=logger, 
-                         
+                         #callbacks=callbacks,
                          )
     trainer.fit(pseudo_generator, train_loader)
 

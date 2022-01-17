@@ -2,8 +2,9 @@ from .base import *
 from .vanilla_vae import *
 from .Gan import GAN
 from .Cgan import CGAN
+from .CCgan import CCGAN
 
-from .MNIST import LitMNIST
+from .MNIST import *
 
 # Aliases
 #VAE = VanillaVAE
@@ -14,4 +15,6 @@ GaussianVAE = VanillaVAE
 GENERATOR = {
              'GAN':GAN,
              'LitMNIST':LitMNIST,
-             'CGAN':CGAN,}
+             "CNN_MNIST":CNN_MNIST,
+             'CGAN':CGAN,
+             'CCGAN':CCGAN}
