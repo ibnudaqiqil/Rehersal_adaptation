@@ -86,10 +86,9 @@ class CGAN(pl.LightningModule):
     self.n_classes = n_classes
     self.image_w = image_w
     self.image_h = image_h
-    self.latent_dim = latent_dim
-    self.generator = Generator(
-        n_classes=self.n_classes, image_w=self.image_w, image_h=self.image_h,latent_dim=self.latent_dim)
-    self.discriminator = Discriminator(n_classes=self.n_classes, latent_dim=self.latent_dim)
+    self.latent_dimx = latent_dim
+    self.generator = Generator(n_classes=self.n_classes, image_w=self.image_w, image_h=self.image_h,latent_dim=self.latent_dimx)
+    self.discriminator = Discriminator(n_classes=self.n_classes, latent_dim=self.latent_dimx)
 
   def forward(self, z, y):
     """
@@ -110,9 +109,8 @@ class CGAN(pl.LightningModule):
     """
 
     # Sample random noise and labels
-    z = torch.randn(x.shape[0], self.latent_dim, device=self.device)
-    y = torch.randint(0, self.n_classes, size=(
-        x.shape[0],), device=self.device)
+    z = torch.randn(x.shape[0], self.latent_dimx, device=self.device)
+    y = torch.randint(0, self.n_classes, size=(x.shape[0],), device=self.device)
 
     # Generate images
     generated_imgs = self(z, y)
@@ -124,9 +122,8 @@ class CGAN(pl.LightningModule):
     # loss, which is equivalent to minimizing the loss with the true
     # labels flipped (i.e. y_true=1 for fake images). We do this
     # as PyTorch can only minimize a function instead of maximizing
-    g_loss = nn.BCELoss()(d_output,
-                          torch.ones(x.shape[0], device=self.device))
-
+    g_loss = nn.BCELoss()(d_output, torch.ones(x.shape[0], device=self.device))
+    self.log("g_loss", g_loss, on_epoch=True, prog_bar=True)
     return g_loss
 
   def discriminator_step(self, x, y):
@@ -141,19 +138,16 @@ class CGAN(pl.LightningModule):
 
     # Real images
     d_output = torch.squeeze(self.discriminator(x, y))
-    loss_real = nn.BCELoss()(d_output,
-                             torch.ones(x.shape[0], device=self.device))
+    loss_real = nn.BCELoss()(d_output, torch.ones(x.shape[0], device=self.device))
 
     # Fake images
-    z = torch.randn(x.shape[0], self.latent_dim, device=self.device)
-    y = torch.randint(0, self.n_classes, size=(
-        x.shape[0],), device=self.device)
+    z = torch.randn(x.shape[0], self.latent_dimx, device=self.device)
+    y = torch.randint(0, self.n_classes, size=(x.shape[0],), device=self.device)
 
     generated_imgs = self(z, y)
     d_output = torch.squeeze(self.discriminator(generated_imgs, y))
-    loss_fake = nn.BCELoss()(d_output,
-                             torch.zeros(x.shape[0], device=self.device))
-
+    loss_fake = nn.BCELoss()(d_output, torch.zeros(x.shape[0], device=self.device))
+    self.log("d_loss", loss_real + loss_fake, on_epoch=True, prog_bar=True)
     return loss_real + loss_fake
 
   def training_step(self, batch, batch_idx, optimizer_idx):

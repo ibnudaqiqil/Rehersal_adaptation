@@ -114,9 +114,11 @@ for task_id, train_taskset in enumerate(scenario):
     # Data preparation (Load your own data or example MNIST)
     console.log("Training Generator")
     pseudo_generator = GENERATOR[args.model](jumlah_kelas)
-    callbacks = [TensorboardGenerativeModelImageSampler(), LatentDimInterpolator(interpolate_epoch_interval=5)]
+    callbacks = [TensorboardGenerativeModelImageSampler()]
     trainer = pl.Trainer(max_epochs=args.gan_epochs, gpus=AVAIL_GPUS,
-                         progress_bar_refresh_rate=50, logger=logger, callbacks=callbacks,)
+                         progress_bar_refresh_rate=50, logger=logger, 
+                         
+                         )
     trainer.fit(pseudo_generator, train_loader)
 
         #print(hasil)
