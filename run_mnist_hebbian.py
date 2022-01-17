@@ -34,23 +34,11 @@ def train(model, device, train_set_loader, optimizer, epoch, logging_interval=10
 
 
 def train_many_epochs(model, train_set_loader, test_set_loader):
-    epoch = 1
-    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5)
-    train(model, device, train_set_loader,
-          optimizer, epoch, logging_interval=10)
-    test(model, device, test_set_loader)
+    for epoch in range(1, 20):
+        optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5)
+        train(model, device, train_set_loader, optimizer, epoch, logging_interval=10)
+        test(model, device, test_set_loader)
 
-    epoch = 2
-    optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.5)
-    train(model, device, train_set_loader,
-          optimizer, epoch, logging_interval=10)
-    test(model, device, test_set_loader)
-
-    epoch = 3
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-    train(model, device, train_set_loader,
-          optimizer, epoch, logging_interval=10)
-    test(model, device, test_set_loader)
 
 
 def test(model, device, test_set_loader):
@@ -374,4 +362,15 @@ for task_id, train_taskset in enumerate(scenario):
     val_loader = DataLoader(val_taskset, batch_size=BATCH_SIZE, shuffle=False)
     train_many_epochs(spiking_model, train_loader, val_loader)
 
-
+    if task_id > 0:
+        t=[]
+        for test_id in range(0, task_id+1):
+            print("Test test_id", test_id," Class=", scenario_test[test_id].get_classes())
+            #print(Style.RESET_ALL)
+            test_loader = DataLoader(
+                scenario_test[test_id], batch_size=32, shuffle=False)
+            hasil = test(spiking_model, device, test_loader)
+            t.append((test_id, hasil[0]['Test_acc']))
+        #test_taskset = concat(t)
+        
+    
