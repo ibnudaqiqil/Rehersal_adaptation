@@ -1,9 +1,10 @@
 from .base import *
 from .vanilla_vae import *
 from .Gan import GAN
+from .Cgan import CGAN
 
 from .MNIST import LitMNIST
-from .Cgan import CGAN  
+
 # Aliases
 #VAE = VanillaVAE
 GaussianVAE = VanillaVAE

@@ -100,8 +100,7 @@ class CGAN(pl.LightningModule):
 
     # Sample random noise and labels
     z = torch.randn(x.shape[0], 100, device=self.device)
-    y = torch.randint(0, self.num_classes, size=(
-        x.shape[0],), device=self.device)
+    y = torch.randint(0, self.num_classes, size=( x.shape[0],), device=self.device)
 
     # Generate images
     generated_imgs = self(z, y)
@@ -113,8 +112,7 @@ class CGAN(pl.LightningModule):
     # loss, which is equivalent to minimizing the loss with the true
     # labels flipped (i.e. y_true=1 for fake images). We do this
     # as PyTorch can only minimize a function instead of maximizing
-    g_loss = nn.BCELoss()(d_output,
-                          torch.ones(x.shape[0], device=self.device))
+    g_loss = nn.BCELoss()(d_output,torch.ones(x.shape[0], device=self.device))
 
     return g_loss
 
@@ -130,18 +128,15 @@ class CGAN(pl.LightningModule):
 
     # Real images
     d_output = torch.squeeze(self.discriminator(x, y))
-    loss_real = nn.BCELoss()(d_output,
-                             torch.ones(x.shape[0], device=self.device))
+    loss_real = nn.BCELoss()(d_output, torch.ones(x.shape[0], device=self.device))
 
     # Fake images
     z = torch.randn(x.shape[0], 100, device=self.device)
-    y = torch.randint(0, self.num_classes, size=(
-        x.shape[0],), device=self.device)
+    y = torch.randint(0, self.num_classes, size=( x.shape[0],), device=self.device)
 
     generated_imgs = self(z, y)
     d_output = torch.squeeze(self.discriminator(generated_imgs, y))
-    loss_fake = nn.BCELoss()(d_output,
-                             torch.zeros(x.shape[0], device=self.device))
+    loss_fake = nn.BCELoss()(d_output, torch.zeros(x.shape[0], device=self.device))
 
     return loss_real + loss_fake
 

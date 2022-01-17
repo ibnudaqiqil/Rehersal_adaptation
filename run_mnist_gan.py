@@ -112,13 +112,7 @@ for task_id, train_taskset in enumerate(scenario):
 
     # Data preparation (Load your own data or example MNIST)
     console.log("Training Generator")
-    if args.model == "GAN":
-        pseudo_generator = GENERATOR[args.model](1,28, 28)
-    elif args.model == "CGAN":
-        dm_cls = CIFAR10DataModule
-    elif args.model == "GMM":
-        dm_cls = CIFAR10DataModule
-
+    pseudo_generator = GENERATOR[args.model](jumlah_kelas)
     callbacks = [TensorboardGenerativeModelImageSampler(), LatentDimInterpolator(interpolate_epoch_interval=5)]
     trainer = pl.Trainer(max_epochs=args.gan_epochs, gpus=AVAIL_GPUS,
                          progress_bar_refresh_rate=50, logger=logger, callbacks=callbacks,)
