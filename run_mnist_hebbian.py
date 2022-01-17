@@ -34,7 +34,7 @@ def train(model, device, train_set_loader, optimizer, epoch, logging_interval=10
 
 
 def train_many_epochs(model, train_set_loader, test_set_loader):
-    for epoch in range(1, 20):
+    for epoch in range(1, 10):
         optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5)
         train(model, device, train_set_loader, optimizer, epoch, logging_interval=10)
         test(model, device, test_set_loader)
@@ -369,8 +369,8 @@ for task_id, train_taskset in enumerate(scenario):
             #print(Style.RESET_ALL)
             test_loader = DataLoader(
                 scenario_test[test_id], batch_size=32, shuffle=False)
-            hasil = test(spiking_model, device, test_loader)
-            t.append((test_id, hasil[0]['Test_acc']))
+            test(spiking_model, device, test_loader)
+            #t.append((test_id, hasil[0]['Test_acc']))
         #test_taskset = concat(t)
         
     
