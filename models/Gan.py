@@ -1,230 +1,160 @@
-"""
-To run this template just do:
-python gan.py
-After a few epochs, launch TensorBoard to see the images being generated at every batch:
-tensorboard --logdir default
-"""
-import os
-from argparse import ArgumentParser, Namespace
-from collections import OrderedDict
+from argparse import ArgumentParser
 
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from torchvision.datasets import MNIST
+from pytorch_lightning import LightningModule, Trainer, seed_everything
+from torch.nn import functional as F
 
-from pytorch_lightning.core import LightningModule
-from pytorch_lightning.trainer import Trainer
-
-
-class Generator(nn.Module):
-    def __init__(self, latent_dim, img_shape):
-        super().__init__()
-        self.img_shape = img_shape
-
-        def block(in_feat, out_feat, normalize=True):
-            layers = [nn.Linear(in_feat, out_feat)]
-            if normalize:
-                layers.append(nn.BatchNorm1d(out_feat, 0.8))
-            layers.append(nn.LeakyReLU(0.2, inplace=True))
-            return layers
-
-        self.model = nn.Sequential(
-            *block(latent_dim, 128, normalize=False),
-            *block(128, 256),
-            *block(256, 512),
-            *block(512, 1024),
-            nn.Linear(1024, int(np.prod(img_shape))),
-            nn.Tanh()
-        )
-
-    def forward(self, z):
-        img = self.model(z)
-        img = img.view(img.size(0), *self.img_shape)
-        return img
-
-
-class Discriminator(nn.Module):
-    def __init__(self, img_shape):
-        super().__init__()
-
-        self.model = nn.Sequential(
-            nn.Linear(int(np.prod(img_shape)), 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(256, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, img):
-        img_flat = img.view(img.size(0), -1)
-        validity = self.model(img_flat)
-
-        return validity
+from pl_bolts.models.gans.basic.components import Discriminator, Generator
 
 
 class GAN(LightningModule):
+    """Vanilla GAN implementation.
+    Example::
+        from pl_bolts.models.gans import GAN
+        m = GAN()
+        Trainer(gpus=2).fit(m)
+    Example CLI::
+        # mnist
+        python  basic_gan_module.py --gpus 1
+        # imagenet
+        python  basic_gan_module.py --gpus 1 --dataset 'imagenet2012'
+        --data_dir /path/to/imagenet/folder/ --meta_dir ~/path/to/meta/bin/folder
+        --batch_size 256 --learning_rate 0.0001
+    """
 
-    def __init__(self,
-                 latent_dim: int = 100,
-                 lr: float = 0.0002,
-                 b1: float = 0.5,
-                 b2: float = 0.999,
-                 batch_size: int = 64, **kwargs):
+    def __init__(
+        self,
+        input_channels: int,
+        input_height: int,
+        input_width: int,
+        latent_dim: int = 32,
+        learning_rate: float = 0.0002,
+        **kwargs
+    ):
+        """
+        Args:
+            input_channels: number of channels of an image
+            input_height: image height
+            input_width: image width
+            latent_dim: emb dim for encoder
+            learning_rate: the learning rate
+        """
         super().__init__()
-        self.save_hyperparameters()
 
-        self.latent_dim = latent_dim
-        self.lr = lr
-        self.b1 = b1
-        self.b2 = b2
-        self.batch_size = batch_size
+        # makes self.hparams under the hood and saves to ckpt
+        self.save_hyperparameters()
+        self.img_dim = (input_channels, input_height, input_width)
 
         # networks
-        mnist_shape = (1, 28, 28)
-        self.generator = Generator(
-            latent_dim=self.latent_dim, img_shape=mnist_shape)
-        self.discriminator = Discriminator(img_shape=mnist_shape)
+        self.generator = self.init_generator(self.img_dim)
+        self.discriminator = self.init_discriminator(self.img_dim)
 
-        self.validation_z = torch.randn(8, self.latent_dim)
+    def init_generator(self, img_dim):
+        generator = Generator(
+            latent_dim=self.hparams.latent_dim, img_shape=img_dim)
+        return generator
 
-        self.example_input_array = torch.zeros(2, self.latent_dim)
+    def init_discriminator(self, img_dim):
+        discriminator = Discriminator(img_shape=img_dim)
+        return discriminator
 
     def forward(self, z):
+        """Generates an image given input noise z.
+        Example::
+            z = torch.rand(batch_size, latent_dim)
+            gan = GAN.load_from_checkpoint(PATH)
+            img = gan(z)
+        """
         return self.generator(z)
 
-    def adversarial_loss(self, y_hat, y):
-        return F.binary_cross_entropy(y_hat, y)
+    def generator_loss(self, x):
+        # sample noise
+        z = torch.randn(
+            x.shape[0], self.hparams.latent_dim, device=self.device)
+        y = torch.ones(x.size(0), 1, device=self.device)
+
+        # generate images
+        generated_imgs = self(z)
+
+        D_output = self.discriminator(generated_imgs)
+
+        # ground truth result (ie: all real)
+        g_loss = F.binary_cross_entropy(D_output, y)
+
+        return g_loss
+
+    def discriminator_loss(self, x):
+        # train discriminator on real
+        b = x.size(0)
+        x_real = x.view(b, -1)
+        y_real = torch.ones(b, 1, device=self.device)
+
+        # calculate real score
+        D_output = self.discriminator(x_real)
+        D_real_loss = F.binary_cross_entropy(D_output, y_real)
+
+        # train discriminator on fake
+        z = torch.randn(b, self.hparams.latent_dim, device=self.device)
+        x_fake = self(z)
+        y_fake = torch.zeros(b, 1, device=self.device)
+
+        # calculate fake score
+        D_output = self.discriminator(x_fake)
+        D_fake_loss = F.binary_cross_entropy(D_output, y_fake)
+
+        # gradient backprop & optimize ONLY D's parameters
+        D_loss = D_real_loss + D_fake_loss
+
+        return D_loss
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        imgs, _ = batch
-
-        # sample noise
-        z = torch.randn(imgs.shape[0], self.latent_dim)
-        z = z.type_as(imgs)
+        x, _,_ = batch
 
         # train generator
+        result = None
         if optimizer_idx == 0:
-
-            # generate images
-            self.generated_imgs = self(z)
-
-            # log sampled images
-            sample_imgs = self.generated_imgs[:6]
-            grid = torchvision.utils.make_grid(sample_imgs)
-            self.logger.experiment.add_image('generated_images', grid, 0)
-
-            # ground truth result (ie: all fake)
-            # put on GPU because we created this tensor inside training_loop
-            valid = torch.ones(imgs.size(0), 1)
-            valid = valid.type_as(imgs)
-
-            # adversarial loss is binary cross-entropy
-            g_loss = self.adversarial_loss(self.discriminator(self(z)), valid)
-            tqdm_dict = {'g_loss': g_loss}
-            output = OrderedDict({
-                'loss': g_loss,
-                'progress_bar': tqdm_dict,
-                'log': tqdm_dict
-            })
-            return output
+            result = self.generator_step(x)
 
         # train discriminator
         if optimizer_idx == 1:
-            # Measure discriminator's ability to classify real from generated samples
+            result = self.discriminator_step(x)
 
-            # how well can it label as real?
-            valid = torch.ones(imgs.size(0), 1)
-            valid = valid.type_as(imgs)
+        return result
 
-            real_loss = self.adversarial_loss(self.discriminator(imgs), valid)
+    def generator_step(self, x):
+        g_loss = self.generator_loss(x)
 
-            # how well can it label as fake?
-            fake = torch.zeros(imgs.size(0), 1)
-            fake = fake.type_as(imgs)
+        # log to prog bar on each step AND for the full epoch
+        # use the generator loss for checkpointing
+        self.log("g_loss", g_loss, on_epoch=True, prog_bar=True)
+        return g_loss
 
-            fake_loss = self.adversarial_loss(
-                self.discriminator(self(z).detach()), fake)
+    def discriminator_step(self, x):
+        # Measure discriminator's ability to classify real from generated samples
+        d_loss = self.discriminator_loss(x)
 
-            # discriminator loss is the average of these
-            d_loss = (real_loss + fake_loss) / 2
-            tqdm_dict = {'d_loss': d_loss}
-            output = OrderedDict({
-                'loss': d_loss,
-                'progress_bar': tqdm_dict,
-                'log': tqdm_dict
-            })
-            return output
+        # log to prog bar on each step AND for the full epoch
+        self.log("d_loss", d_loss, on_epoch=True, prog_bar=True)
+        return d_loss
 
     def configure_optimizers(self):
-        lr = self.lr
-        b1 = self.b1
-        b2 = self.b2
+        lr = self.hparams.learning_rate
 
-        opt_g = torch.optim.Adam(
-            self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(
-            self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr)
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr)
         return [opt_g, opt_d], []
 
-    def train_dataloader(self):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ])
-        dataset = MNIST(os.getcwd(), train=True,
-                        download=True, transform=transform)
-        return DataLoader(dataset, batch_size=self.batch_size)
-
-    def on_epoch_end(self):
-        z = self.validation_z.to(self.device)
-
-        # log sampled images
-        sample_imgs = self(z)
-        grid = torchvision.utils.make_grid(sample_imgs)
-        self.logger.experiment.add_image(
-            'generated_images', grid, self.current_epoch)
-
-
-def main(args: Namespace) -> None:
-    # ------------------------
-    # 1 INIT LIGHTNING MODEL
-    # ------------------------
-    model = GAN(**vars(args))
-
-    # ------------------------
-    # 2 INIT TRAINER
-    # ------------------------
-    # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
-    # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
-    trainer = Trainer(gpus=args.gpus)
-
-    # ------------------------
-    # 3 START TRAINING
-    # ------------------------
-    trainer.fit(model)
-
-
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument("--gpus", type=int, default=0, help="number of GPUs")
-    parser.add_argument("--batch_size", type=int,
-                        default=64, help="size of the batches")
-    parser.add_argument("--lr", type=float, default=0.0002,
-                        help="adam: learning rate")
-    parser.add_argument("--b1", type=float, default=0.5,
-                        help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--b2", type=float, default=0.999,
-                        help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--latent_dim", type=int, default=100,
-                        help="dimensionality of the latent space")
-
-    hparams = parser.parse_args()
-
-    main(hparams)
-
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        parser.add_argument("--learning_rate", type=float,
+                            default=0.0002, help="adam: learning rate")
+        parser.add_argument(
+            "--adam_b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient"
+        )
+        parser.add_argument(
+            "--adam_b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient"
+        )
+        parser.add_argument("--latent_dim", type=int,
+                            default=100, help="generator embedding dim")
+        return parser

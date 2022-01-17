@@ -1,71 +1,56 @@
-from models.MNIST import LitMNIST
-from models.Cgan import CGAN
-from models.CCgan import CCGAN
-from models.Wgan_GP import WGANGP
 
 from rich import print
 from rich.console import Console
-from models.Wgan import WGAN
-from pytorch_lightning.loggers import TensorBoardLogger
-from colorama import Fore, Back, Style
+
+
 import logging
-from continuum import rehearsal
+
 import os
 import warnings
-warnings.filterwarnings("ignore")
+import argparse
+
+
+import pytorch_lightning as pl
+from pytorch_lightning import LightningModule, Trainer
+from pytorch_lightning.loggers import TensorBoardLogger
+from pl_bolts.callbacks import LatentDimInterpolator, TensorboardGenerativeModelImageSampler
+from pl_bolts.metrics import MetricTracker
 
 import torch
-from pytorch_lightning import LightningModule, Trainer
-import pytorch_lightning as pl
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, random_split
 from torchmetrics import Accuracy
-from torchvision import transforms
+
 
 from torch.utils.data import DataLoader
 
-from continuum import ClassIncremental
-from continuum.datasets import MNIST
-from continuum.tasks import split_train_val, concat
+
 
 import numpy as np
+from fungsi import *
+from models import *
 
 console = Console()
-console.log("Loading MNIST dataset...")
-trfm = [transforms.ToTensor(),
-         #transforms.Normalize(mean=[0.5], std=[0.5]),
-         #transforms.Lambda(lambda x: x.view(-1, 784)),
-        # transforms.Lambda(lambda x: torch.squeeze(x))
-         ]
-                            
-dataset = MNIST("./store/dataset", download=True, train=True)
-                                             
 
-test_dataset = MNIST("./store/dataset", download=True, train=False)
+
 pl.utilities.distributed.log.setLevel(logging.ERROR)
-
-console.log("Splitting dataset and create scenario...")
-scenario = ClassIncremental(
-    dataset,
-    increment=2,
-    initial_increment=6,
-    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-    transformations=trfm,
- 
-)
-scenario_test = ClassIncremental(
-    test_dataset,
-    increment=2,
-    initial_increment=6,
-    class_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-    transformations=trfm
-)
+warnings.filterwarnings("ignore")
+logger = TensorBoardLogger("runs", name="MNIST_GAN")
 AVAIL_GPUS = min(1, torch.cuda.device_count())
 BATCH_SIZE = 256 if AVAIL_GPUS else 64
 
+console.log("Loading MNIST dataset...")
+scenario, scenario_test = create_MNIST_scenario(mnist_path="./store/dataset")
 
-logger = TensorBoardLogger("runs", name="MNIST_GAN")
+#parse arguments
+parser = argparse.ArgumentParser()
+
+parser.add_argument( "--gan_epochs",  type=int,  default=100, help="number of epochs to train generator",)
+parser.add_argument( "--epochs",  type=int,  default=1, help="number of epochs to train generator",)
+parser.add_argument( "--batch_size",   type=int,  default=BATCH_SIZE, help="size of the batches",)
+parser.add_argument( "--model",type=str, default="GAN", help="model Generator")
+
+args = parser.parse_args()
 
 console.log("Creating model...")
 for task_id, train_taskset in enumerate(scenario):
@@ -87,8 +72,7 @@ for task_id, train_taskset in enumerate(scenario):
             mem_x = pseudo_generator.generator(Z, mem_y)
             mem_x = mem_x.detach()
             mem_x = mem_x.view(-1,  28, 28)
-        #print(mem_x.shape)
-    #    mem_x, mem_y, mem_t = memory.get()
+
             train_taskset.add_samples(
                 mem_x.numpy(), mem_y.detach().numpy(), None)
     
@@ -96,7 +80,7 @@ for task_id, train_taskset in enumerate(scenario):
     classifier = LitMNIST(num_classes=jumlah_kelas)
     trainer_classifier = Trainer(
         gpus=AVAIL_GPUS,
-        max_epochs=10,
+        max_epochs=args.epochs,
         logger=logger,
         #verbose=True,
         #weights_summary=None,
@@ -129,10 +113,16 @@ for task_id, train_taskset in enumerate(scenario):
 
     # Data preparation (Load your own data or example MNIST)
     console.log("Training Generator")
-    pseudo_generator = WGANGP()
+    if args.model == "GAN":
+        pseudo_generator = GENERATOR[args.model](1,28, 28)
+    elif args.model == "CGAN":
+        dm_cls = CIFAR10DataModule
+    elif args.model == "GMM":
+        dm_cls = CIFAR10DataModule
 
-    trainer = pl.Trainer(max_epochs=100, gpus=AVAIL_GPUS,
-                         progress_bar_refresh_rate=50, logger=logger,)
+    callbacks = [TensorboardGenerativeModelImageSampler(), LatentDimInterpolator(interpolate_epoch_interval=5)]
+    trainer = pl.Trainer(max_epochs=args.gan_epochs, gpus=AVAIL_GPUS,
+                         progress_bar_refresh_rate=50, logger=logger, callbacks=callbacks,)
     trainer.fit(pseudo_generator, train_loader)
 
         #print(hasil)
