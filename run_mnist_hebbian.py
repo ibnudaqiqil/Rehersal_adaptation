@@ -59,7 +59,7 @@ def test(model, device, test_set_loader):
     correct = 0
 
     with torch.no_grad():
-        for data, target in test_set_loader:
+        for data, target,_ in test_set_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
             # Note: with `reduce=True`, I'm not sure what would happen with a final batch size
