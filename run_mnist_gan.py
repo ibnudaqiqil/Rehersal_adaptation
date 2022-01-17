@@ -14,7 +14,6 @@ import pytorch_lightning as pl
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 from pl_bolts.callbacks import LatentDimInterpolator, TensorboardGenerativeModelImageSampler
-from pl_bolts.metrics import MetricTracker
 
 import torch
 from torch import nn
