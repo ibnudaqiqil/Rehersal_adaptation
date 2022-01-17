@@ -12,6 +12,8 @@ from torch.autograd import Variable
 import numpy as np
 import pandas as pd
 
+from rich import print
+from rich.console import Console
 
 def train(model, device, train_set_loader, optimizer, epoch, logging_interval=100):
     model.train()
